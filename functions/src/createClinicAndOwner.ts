@@ -1,7 +1,7 @@
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { FieldValue } from "firebase-admin/firestore";
 import { auth, db } from "./admin";
-import { REGION } from "./constants";
+import { REGION, ENFORCE_APP_CHECK_MOBILE } from "./constants";
 import { writeAuditLog } from "./audit";
 
 interface CreateClinicAndOwnerRequest {
@@ -29,7 +29,7 @@ function requireNonBlank(value: unknown, field: string): string {
  * tenant but no owner staff record.
  */
 export const createClinicAndOwner = onCall(
-  { region: REGION, enforceAppCheck: true },
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK_MOBILE },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in before creating a clinic.");

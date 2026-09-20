@@ -20,6 +20,10 @@ npm-debug.log*
 # Node / Firestore rules tests
 firestore-tests/node_modules/
 
+# Node / Dashboard
+dashboard/node_modules/
+dashboard/dist/
+
 # Firebase local state
 .firebase/
 firebase-debug.log

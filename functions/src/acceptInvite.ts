@@ -1,7 +1,7 @@
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { FieldValue, QueryDocumentSnapshot } from "firebase-admin/firestore";
 import { auth, db } from "./admin";
-import { REGION } from "./constants";
+import { REGION, ENFORCE_APP_CHECK_MOBILE } from "./constants";
 import { writeAuditLog } from "./audit";
 
 interface AcceptInviteRequest {
@@ -58,7 +58,7 @@ async function findInvite(
  * rule allowing staff writes to an invite they don't own yet.
  */
 export const acceptInvite = onCall(
-  { region: REGION, enforceAppCheck: true },
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK_MOBILE },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in first.");

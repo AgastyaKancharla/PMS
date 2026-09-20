@@ -1,6 +1,6 @@
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { auth, db } from "./admin";
-import { REGION, isClinicRole, INVITABLE_ROLES } from "./constants";
+import { REGION, isClinicRole, INVITABLE_ROLES, ENFORCE_APP_CHECK_MOBILE } from "./constants";
 import { writeAuditLog } from "./audit";
 
 interface UpdateStaffRoleRequest {
@@ -10,7 +10,7 @@ interface UpdateStaffRoleRequest {
 
 /** Owner-only. Changes both the staff doc and the custom claim together, so they never drift. */
 export const updateStaffRole = onCall(
-  { region: REGION, enforceAppCheck: true },
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK_MOBILE },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in first.");

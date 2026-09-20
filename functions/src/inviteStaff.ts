@@ -1,7 +1,7 @@
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { FieldValue } from "firebase-admin/firestore";
 import { db } from "./admin";
-import { REGION, isClinicRole, INVITABLE_ROLES } from "./constants";
+import { REGION, isClinicRole, INVITABLE_ROLES, ENFORCE_APP_CHECK_MOBILE } from "./constants";
 import { writeAuditLog } from "./audit";
 
 interface InviteStaffRequest {
@@ -18,7 +18,7 @@ interface InviteStaffRequest {
  * different clinicId, because there is no clinicId argument at all.
  */
 export const inviteStaff = onCall(
-  { region: REGION, enforceAppCheck: true },
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK_MOBILE },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in first.");

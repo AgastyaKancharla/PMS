@@ -58,6 +58,36 @@ jobs:
       - name: Lint
         run: npm run lint
 
+  dashboard:
+    name: Platform admin dashboard (typecheck + lint + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        # No Firebase config needed to build - VITE_FIREBASE_* env vars are only
+        # read at runtime, not at build time. See dashboard/.env.example.
+        run: npm run build
+
   rules-test:
     name: Firestore + Storage rules tests
     runs-on: ubuntu-latest

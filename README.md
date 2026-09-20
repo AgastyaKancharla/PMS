@@ -8,9 +8,12 @@ modules yet — this phase only builds the foundation those will sit on.
 
 - **`app/`** — Android app (Kotlin + Jetpack Compose). Auth screens, role-based
   dashboard shells, and the client side of the invite flow.
+- **`dashboard/`** — AgastyaOne's own platform-admin web dashboard (React + Vite +
+  TypeScript), separate from the clinic-facing Android app. See Phase 5 below.
 - **`functions/`** — Cloud Functions (TypeScript) that own every custom-claims
   mutation: `createClinicAndOwner`, `inviteStaff`, `acceptInvite`, `updateStaffRole`,
-  and `onPlatformAdminWrite`.
+  `onPlatformAdminWrite`, and Phase 5's `setTenantSuspended`, `listAuditLogsForClinic`,
+  `provisionPlatformAdmin`.
 - **`firestore.rules`**, **`storage.rules`**, **`firestore.indexes.json`** — security
   rules and indexes for this phase's collections.
 - **`firebase.json`**, **`.firebaserc`** — Firebase CLI project config.
@@ -61,12 +64,18 @@ project ID.
 ## 4. Seed the first platform admin (manual, one-time)
 
 Platform admin is deliberately not reachable from the clinic signup/invite flow. For
-this phase, grant it by hand: create a Firebase Auth user for your AgastyaOne team
-member (console → Authentication → Add user, email/password), then create a Firestore
-document at `platformAdmins/{that user's uid}` with `{ name, email }`. The
-`onPlatformAdminWrite` Cloud Function will pick that up and set the `platformAdmin`
-custom claim automatically. They can then sign in via the app's "AgastyaOne team
-sign-in" entry point.
+the very first admin, there's a chicken-and-egg problem (Phase 5's provisioning
+callable is itself platform-admin-only), so grant it by hand exactly once: create a
+Firebase Auth user for your AgastyaOne team member (console → Authentication → Add
+user, email/password), then create a Firestore document at
+`platformAdmins/{that user's uid}` with `{ name, email }`. The `onPlatformAdminWrite`
+Cloud Function will pick that up and set the `platformAdmin` custom claim
+automatically. They can then sign in via the app's "AgastyaOne team sign-in" entry
+point, or via the Phase 5 web dashboard.
+
+Every platform admin *after* the first one should go through the dashboard's
+"Provision admin" screen instead (`provisionPlatformAdmin`, see Phase 5) - no more
+by-hand console work needed from here on.
 
 ## 5. Deploy rules, indexes, and functions
 
@@ -233,3 +242,105 @@ Hidden tiles are absent from the grid, not just disabled.
   or card in person.
 - Razorpay payment links (Phase 4b) and insurance/TPA claims (Phase 4c) are explicitly out
   of scope for this phase.
+
+## Phase 5 — Platform admin web dashboard
+
+A new, separate web app (`dashboard/`) for AgastyaOne's own back office - clinic/tenant
+support and ops, not a clinic-facing product. Until this phase, "platform admin" was
+just an Android sign-in screen that verified the `platformAdmin` claim and then showed
+two dead placeholder tiles; this phase is the first real functionality behind it,
+built as a web app rather than more Android screens since it's an internal tool with
+no reason to live on a phone.
+
+- **Stack**: React + Vite + TypeScript + Tailwind CSS, using the Firebase Web SDK
+  directly (no separate backend of its own - reads Firestore per the rules below, and
+  calls the three new Cloud Functions for everything the rules don't allow a platform
+  admin to do directly).
+- **Scope, deliberately kept narrow**: clinics list/detail (reading `tenants/*` and
+  `tenants/*/staff/*`, both already allowed for a platform admin by the existing
+  rules), clinic suspend/reactivate, cross-tenant audit-log viewing, and platform-admin
+  account provisioning. **Patient records, clinical data, and billing/invoice data are
+  explicitly out of scope** - the existing rules never gave platform admins visibility
+  into those (see the PII/DPDP-conscious rules comments from Phase 1 onward), and this
+  phase doesn't relax that; a platform admin's job here is support/ops, not clinical
+  access.
+- **Clinic suspension** (new): `tenants/{clinicId}.suspended` (boolean, defaults to
+  false/absent). Set only through the `setTenantSuspended` callable
+  (platform-admin-only). Enforced in `firestore.rules` inside `belongsToTenant()` -
+  every one of that clinic's own staff (owner, receptionist, assistant, lab
+  coordinator) loses all read *and* write access to their tenant's data the moment
+  it's suspended, since every role-check function in the rules file is built on top
+  of `belongsToTenant()`. A platform admin's own read access is unaffected (it doesn't
+  route through that function).
+- **New platform-admin-only Cloud Functions** (all guarded by
+  `request.auth.token.platformAdmin === true`, checked server-side - never trust a
+  client claim to be self-reported):
+  - `setTenantSuspended({ clinicId, suspended })` - toggles the field above and writes
+    a `clinic_suspended`/`clinic_reactivated` audit log entry.
+  - `listAuditLogsForClinic({ clinicId, limit?, startAfterId? })` - the Firestore rules
+    give a platform admin no read access to a clinic's audit log (owner-only there);
+    this callable reads it with the Admin SDK instead, without relaxing the rules a
+    clinic's own staff are bound by.
+  - `provisionPlatformAdmin({ email, name })` - looks up an existing Auth user by
+    email, or creates one with a one-time temporary password, then writes
+    `platformAdmins/{uid}` (which is what actually grants the claim, via the existing
+    `onPlatformAdminWrite` trigger - this function never sets it directly). Replaces
+    the by-hand console process from step 4 above for every admin after the first.
+- **Running it locally**:
+  ```bash
+  cd dashboard
+  npm install
+  cp .env.example .env.local   # fill in your Firebase project's Web SDK config
+  npm run dev
+  ```
+  The `VITE_FIREBASE_*` values are a public client identifier, not a secret (same as
+  `app/google-services.json`'s API key) - found in the Firebase console under Project
+  settings → General → Your apps → Web app.
+- **Deploying**: `firebase deploy --only hosting` (builds `dashboard/` via the
+  `predeploy` hook in `firebase.json` first). The new Cloud Functions deploy the same
+  way as any other: `firebase deploy --only functions`.
+- **What this sandbox could not verify**: no live Firebase project or deployed Hosting
+  site here, so the dashboard's actual sign-in flow, Firestore reads, and callable
+  functions were never exercised end-to-end against a real backend - only built and
+  typechecked. `dashboard`'s CI job (typecheck + lint + build) and the
+  `rules-test` job (including new suspension test cases, run against the real local
+  Firestore/Storage emulators) are the authoritative signal for this PR; a live-deploy
+  smoke test (sign in, suspend a test clinic, provision a second admin) is the user's
+  next step, same division of labor as Phase 4b's Razorpay integration.
+
+### Continuous deployment
+
+`.github/workflows/deploy.yml` auto-deploys Hosting, Functions, and Firestore rules to
+the `agastyaone-crm` project (see `.firebaserc`) on every push to `main` or
+`claude/firebase-foundation-setup-qvdyzl`, or via a manual "Run workflow" trigger. It's
+deliberately a separate workflow from `ci.yml` - `ci.yml` needs no credentials and runs
+on every push/PR; this one deploys to the real, live project and only runs where
+that's actually wanted.
+
+It needs these repository secrets (Settings → Secrets and variables → Actions → New
+repository secret) before it can deploy anything - without them the workflow fails
+cleanly at the auth step, it doesn't silently skip:
+
+- **`FIREBASE_SERVICE_ACCOUNT`** - the full JSON key of a service account with deploy
+  rights on the `agastyaone-crm` project. Create one: Google Cloud console → IAM & Admin
+  → Service Accounts (select the `agastyaone-crm` project) → Create Service Account →
+  grant it the **Firebase Admin** role (`roles/firebase.admin` - broad, but Cloud
+  Functions gen2 deploys touch enough distinct services - Cloud Run, Cloud Build,
+  Artifact Registry, Eventarc - that hand-picking a minimal role set is its own
+  maintenance burden; tighten it later if you want) → Keys → Add key → JSON, then paste
+  the entire downloaded file's contents as the secret value.
+- **`VITE_FIREBASE_API_KEY`**, **`VITE_FIREBASE_AUTH_DOMAIN`**, **`VITE_FIREBASE_PROJECT_ID`**,
+  **`VITE_FIREBASE_STORAGE_BUCKET`**, **`VITE_FIREBASE_MESSAGING_SENDER_ID`**,
+  **`VITE_FIREBASE_APP_ID`** - the dashboard's own Web app config, baked into the build
+  at build time (Vite env vars aren't available at runtime like a server app's would
+  be). Firebase console → Project settings → General → Your apps. If there's no Web
+  app registered yet under `agastyaone-crm` (only the existing Android app), add one
+  there first (`</>` icon) - registering it doesn't touch the Android app's config at
+  all, they're independent per-platform entries in the same project. These six values
+  are a public client identifier, not a secret (same as `google-services.json`'s API
+  key) - they're stored as Actions secrets here only because that's the standard place
+  to inject build-time env vars, not because they need hiding.
+
+Once both are set, push to either branch above (or use "Run workflow" on the Actions
+tab) and the dashboard is live at `https://agastyaone-crm.web.app` (or `.firebaseapp.com`)
+within a couple of minutes.

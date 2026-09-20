@@ -1,0 +1,48 @@
+name: Deploy dashboard + functions + rules
+
+# Separate from ci.yml on purpose: ci.yml (typecheck/lint/build only) runs on
+# every push/PR with no credentials needed. This workflow actually deploys to
+# the live agastyaone-crm Firebase project, so it only runs where that's
+# intended, and needs the secrets set up below (see README's "Continuous
+# deployment" section under Phase 5).
+
+on:
+  push:
+    branches:
+      - main
+      - claude/firebase-foundation-setup-qvdyzl
+  workflow_dispatch:
+
+concurrency:
+  group: firebase-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Firebase (agastyaone-crm)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Deploy Hosting, Functions, and Firestore rules
+        # dashboard/ and functions/ are built by firebase.json's own predeploy
+        # hooks (npm install + build), not here - this step just needs the
+        # VITE_FIREBASE_* values in its env so that build picks them up.
+        run: npx firebase-tools@latest deploy --only hosting,functions,firestore:rules --project agastyaone-crm --non-interactive
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}

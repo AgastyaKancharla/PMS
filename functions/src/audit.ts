@@ -5,7 +5,9 @@ export type AuditActionType =
   | "clinic_created"
   | "staff_invite_sent"
   | "staff_invite_accepted"
-  | "role_change";
+  | "role_change"
+  | "clinic_suspended"
+  | "clinic_reactivated";
 
 export interface WriteAuditLogParams {
   clinicId: string;

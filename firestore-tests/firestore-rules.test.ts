@@ -27,15 +27,14 @@ beforeAll(async () => {
   testEnv = await initializeTestEnvironment({
     projectId: PROJECT_ID,
     firestore: {
-      rules: readFileSync(resolve(__dirname, "../firestore.rules"), "utf8"),
       host: "127.0.0.1",
-      port: 8080,
+      port: 8085,
     },
   });
 });
 
 afterAll(async () => {
-  await testEnv.cleanup();
+  await testEnv?.cleanup();
 });
 
 afterEach(async () => {
@@ -353,6 +352,55 @@ describe("platform admin", () => {
     await assertFails(
       setDoc(doc(db, "tenants/A/staff/adminAddedUid"), { role: "assistant", name: "Admin Added" })
     );
+  });
+});
+
+describe("clinic suspension", () => {
+  async function suspendClinicA(): Promise<void> {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), "tenants/A"), { suspended: true }, { merge: true });
+    });
+  }
+
+  it("CORE: blocks the owner from reading or writing anything under a suspended tenant", async () => {
+    await seedFixtures();
+    await suspendClinicA();
+    const db = ownerAContext().firestore();
+
+    await assertFails(getDoc(doc(db, "tenants/A")));
+    await assertFails(getDoc(doc(db, "tenants/A/staff/ownerA")));
+    await assertFails(getDoc(doc(db, "tenants/A/patients/patientA1")));
+    await assertFails(
+      setDoc(doc(db, "tenants/A/staff/newHireUid"), { role: "assistant", name: "New Hire" })
+    );
+  });
+
+  it("blocks receptionist/assistant/labCoordinator access to a suspended tenant the same way", async () => {
+    await seedFixtures();
+    await suspendClinicA();
+
+    await assertFails(getDoc(doc(receptionistAContext().firestore(), "tenants/A")));
+    await assertFails(getDoc(doc(assistantAContext().firestore(), "tenants/A")));
+    await assertFails(getDoc(doc(labCoordinatorAContext().firestore(), "tenants/A")));
+  });
+
+  it("does not affect an unrelated, unsuspended clinic's staff", async () => {
+    await seedFixtures();
+    await suspendClinicA();
+    const db = testEnv
+      .authenticatedContext("ownerB", { role: "owner", clinicId: "B" })
+      .firestore();
+
+    await assertSucceeds(getDoc(doc(db, "tenants/B")));
+  });
+
+  it("does not affect a platform admin's read access to the suspended tenant", async () => {
+    await seedFixtures();
+    await suspendClinicA();
+    const db = platformAdminContext().firestore();
+
+    await assertSucceeds(getDoc(doc(db, "tenants/A")));
+    await assertSucceeds(getDoc(doc(db, "tenants/A/staff/ownerA")));
   });
 });
 
