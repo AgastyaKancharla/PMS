@@ -161,8 +161,22 @@ fun OwnerSignupScreen(onBack: () -> Unit) {
                     ) { Text("Verify & create clinic") }
                 }
             } else {
-                OutlinedTextField(email, { email = it }, label = { Text("Email") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(password, { password = it }, label = { Text("Password") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Email") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Password") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Password),
+                )
                 Button(
                     enabled = !isBusy && clinicDetailsValid && email.isNotBlank() && password.isNotBlank(),
                     modifier = Modifier.fillMaxWidth(),
@@ -171,7 +185,12 @@ fun OwnerSignupScreen(onBack: () -> Unit) {
                         errorMessage = null
                         scope.launch {
                             runCatching {
-                                authRepository.signUpWithEmail(email, password)
+                                try {
+                                    authRepository.signUpWithEmail(email, password)
+                                } catch (e: Exception) {
+                                    // If account already exists with this email, sign in to link clinic
+                                    authRepository.signInWithEmail(email, password)
+                                }
                                 completeSignup()
                             }.onFailure { errorMessage = it.message }
                             isBusy = false

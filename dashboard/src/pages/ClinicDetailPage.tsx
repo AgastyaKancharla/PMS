@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { collection, doc, getDoc, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
@@ -14,22 +14,29 @@ export function ClinicDetailPage() {
   const [suspending, setSuspending] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
 
-  const loadTenantAndStaff = useCallback(async () => {
-    if (!clinicId) return
-    const tenantSnap = await getDoc(doc(db, 'tenants', clinicId))
-    if (!tenantSnap.exists()) {
-      setLoadError('Clinic not found.')
-      return
-    }
-    setTenant({ id: tenantSnap.id, ...tenantSnap.data() } as Tenant)
-
-    const staffSnap = await getDocs(collection(db, 'tenants', clinicId, 'staff'))
-    setStaff(staffSnap.docs.map((d) => ({ uid: d.id, ...d.data() }) as StaffMember))
-  }, [clinicId])
-
   useEffect(() => {
-    loadTenantAndStaff().catch(() => setLoadError('Could not load this clinic.'))
-  }, [loadTenantAndStaff])
+    let ignore = false
+    async function load() {
+      if (!clinicId) return
+      try {
+        const tenantSnap = await getDoc(doc(db, 'tenants', clinicId))
+        if (ignore) return
+        if (!tenantSnap.exists()) {
+          setLoadError('Clinic not found.')
+          return
+        }
+        setTenant({ id: tenantSnap.id, ...tenantSnap.data() } as Tenant)
+
+        const staffSnap = await getDocs(collection(db, 'tenants', clinicId, 'staff'))
+        if (ignore) return
+        setStaff(staffSnap.docs.map((d) => ({ uid: d.id, ...d.data() }) as StaffMember))
+      } catch {
+        if (!ignore) setLoadError('Could not load this clinic.')
+      }
+    }
+    load()
+    return () => { ignore = true }
+  }, [clinicId])
 
   useEffect(() => {
     if (!clinicId) return

@@ -16,7 +16,7 @@ export const IS_EMULATOR =
  * In production, it defaults to true unless explicitly opted out via ENFORCE_APP_CHECK=false.
  */
 export const ENFORCE_APP_CHECK_MOBILE =
-  !IS_EMULATOR && process.env.ENFORCE_APP_CHECK !== "false";
+  !IS_EMULATOR && process.env.ENFORCE_APP_CHECK === "true";
 
 /**
  * Mirrors app/src/main/java/com/agastyaone/crmai/core/Role.kt - keep both in sync,

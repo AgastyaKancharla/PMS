@@ -152,6 +152,9 @@ private fun EmailSignInTab() {
             onValueChange = { password = it },
             label = { Text("Password") },
             modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Password),
         )
         Button(
             enabled = !isBusy && email.isNotBlank() && password.isNotBlank(),

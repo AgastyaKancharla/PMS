@@ -20,7 +20,10 @@ class SignatureUploader(private val storage: FirebaseStorage = Firebase.storage)
             stream.toByteArray()
         }
         val ref = storage.reference.child("tenants/$clinicId/patients/$patientId/signatures/$fileName")
-        ref.putBytes(bytes).await()
+        val metadata = com.google.firebase.storage.StorageMetadata.Builder()
+            .setContentType("image/png")
+            .build()
+        ref.putBytes(bytes, metadata).await()
         return ref.downloadUrl.await().toString()
     }
 }

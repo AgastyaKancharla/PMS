@@ -21,7 +21,11 @@ class ImageUploader(private val storage: FirebaseStorage = Firebase.storage) {
 
     suspend fun upload(clinicId: String, patientId: String, fileName: String, sourceUri: Uri): String {
         val ref = storage.reference.child("tenants/$clinicId/patients/$patientId/imaging/$fileName")
-        ref.putFile(sourceUri).await()
+        val contentType = if (fileName.endsWith(".png", ignoreCase = true)) "image/png" else "image/jpeg"
+        val metadata = com.google.firebase.storage.StorageMetadata.Builder()
+            .setContentType(contentType)
+            .build()
+        ref.putFile(sourceUri, metadata).await()
         return ref.downloadUrl.await().toString()
     }
 }

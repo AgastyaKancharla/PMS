@@ -69,6 +69,7 @@ export const createClinicAndOwner = onCall(
         state,
         gstin,
         subscriptionStatus: "trial",
+        invoiceCounter: 0,
         createdAt: FieldValue.serverTimestamp(),
         ownerUid: uid,
       });

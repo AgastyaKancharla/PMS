@@ -21,7 +21,8 @@ service cloud.firestore {
     // Phase 5 - platform admin dashboard. suspended defaults to false (via
     // get()'s default) for every tenant doc that predates this field.
     function isTenantSuspended(clinicId) {
-      return get(/databases/$(database)/documents/tenants/$(clinicId)).data.get('suspended', false) == true;
+      let tenantPath = /databases/$(database)/documents/tenants/$(clinicId);
+      return exists(tenantPath) && get(tenantPath).data.get('suspended', false) == true;
     }
 
     // A suspended clinic's own staff lose all access (read and write) to their

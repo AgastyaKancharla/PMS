@@ -17,5 +17,10 @@ fun shareInvoicePdf(context: Context, file: File) {
         putExtra(Intent.EXTRA_STREAM, uri)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
-    context.startActivity(Intent.createChooser(intent, "Share invoice"))
+    val chooser = Intent.createChooser(intent, "Share invoice").apply {
+        if (context !is android.app.Activity) {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+    }
+    context.startActivity(chooser)
 }

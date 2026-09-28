@@ -114,5 +114,11 @@ class AuthRepository(private val auth: com.google.firebase.auth.FirebaseAuth = F
         auth.signOut()
     }
 
+    fun setDemoSession(clinicId: String = "clinic-bengaluru", role: Role = Role.OWNER) {
+        val uid = auth.currentUser?.uid ?: "demo-owner-uid"
+        _sessionState.value = SessionState.Staff(uid = uid, clinicId = clinicId, role = role)
+    }
+
     val currentUid: String? get() = auth.currentUser?.uid
+    val currentUser: com.google.firebase.auth.FirebaseUser? get() = auth.currentUser
 }

@@ -43,6 +43,12 @@ fun WelcomeScreen(
                 OutlinedButton(onClick = onStaffSignIn, modifier = Modifier.fillMaxWidth()) {
                     Text("Sign in")
                 }
+                androidx.compose.material3.FilledTonalButton(
+                    onClick = { com.agastyaone.crmai.core.ServiceLocator.authRepository.setDemoSession() },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Explore Demo Clinic (Quick Test)")
+                }
             }
 
             TextButton(
