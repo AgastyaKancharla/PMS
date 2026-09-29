@@ -1,42 +1,58 @@
 package com.agastyaone.crmai.ui.patients
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.agastyaone.crmai.core.Role
 import com.agastyaone.crmai.core.ServiceLocator
 import com.agastyaone.crmai.data.patients.ConsentType
 
 /**
- * The EDR (Electronic Dental Record) full-record view. The allergy banner is a safety
- * feature, not decoration: it's always shown while [com.agastyaone.crmai.data.patients.Patient.hasAllergies]
- * is true, with no way to dismiss it away.
+ * Modern EMR (Electronic Dental Record) Patient Chart.
+ * Adheres to medical clean design standards with persistent alert banners and structured modules.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PatientDetailScreen(
     clinicId: String,
@@ -56,159 +72,370 @@ fun PatientDetailScreen(
     val consents by repository.observeConsents(clinicId, patientId).collectAsState(initial = emptyList())
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text(patient?.name ?: "Patient record") },
+                title = {
+                    Text(
+                        patient?.name ?: "Patient Record",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
             )
         },
     ) { padding ->
         val current = patient
         if (current == null) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
             return@Scaffold
         }
 
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             if (current.hasAllergies) {
-                AllergyBanner(allergies = current.allergies)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xFFDC2626),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("⚠️", fontSize = 18.sp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                "CRITICAL ALLERGY ALERT",
+                                color = Color.White,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp,
+                            )
+                            Text(
+                                current.allergies.joinToString(", "),
+                                color = Color.White,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    }
+                }
             }
 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp)
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                SectionHeader("Demographics")
-                DetailRow("Phone", current.phone)
-                DetailRow("Email", current.email)
-                DetailRow("Date of birth", current.dob)
-                DetailRow("Gender", current.gender)
-                DetailRow("Address", current.address)
-                DetailRow("Blood group", current.bloodGroup)
-                DetailRow("Emergency contact", current.emergencyContactName)
-                DetailRow("Emergency contact phone", current.emergencyContactPhone)
-
-                if (role == Role.OWNER || role == Role.RECEPTIONIST) {
-                    OutlinedButton(onClick = onEditDemographics, modifier = Modifier.fillMaxWidth()) {
-                        Text("Edit demographics")
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)),
+                    color = MaterialTheme.colorScheme.surface,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(52.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    current.name.take(1).uppercase(),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 22.sp,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                current.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                "📞 ${current.phone ?: "No phone"} • ✉️ ${current.email ?: "No email"}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            current.bloodGroup?.let { bg ->
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                ) {
+                                    Text(
+                                        "Blood Group: $bg",
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                SectionHeader("Medical history")
-                DetailRow("Chronic conditions", current.chronicConditions.joinToString().ifBlank { "None recorded" })
-                DetailRow("Current medications", current.currentMedications.joinToString().ifBlank { "None recorded" })
-                DetailRow("Notes", current.medicalHistoryNotes.orEmpty().ifBlank { "None recorded" })
-
-                if (role == Role.OWNER || role == Role.ASSISTANT) {
-                    OutlinedButton(onClick = onEditClinicalDetails, modifier = Modifier.fillMaxWidth()) {
-                        Text("Edit medical history")
-                    }
-                }
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                SectionHeader("Consents on file")
-                if (consents.isEmpty()) {
-                    Text("No consents captured yet.", style = MaterialTheme.typography.bodyMedium)
-                } else {
-                    for (consentType in ConsentType.entries) {
-                        val consent = consents.firstOrNull { it.consentType == consentType.id }
-                        DetailRow(
-                            label = consentType.id,
-                            value = when {
-                                consent == null -> "Not captured"
-                                consent.granted -> "Granted"
-                                else -> "Not granted / withdrawn"
-                            },
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(
+                            "Demographics & Contacts",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
+
+                        DetailRow("Date of Birth", current.dob)
+                        DetailRow("Gender", current.gender)
+                        DetailRow("Residential Address", current.address)
+                        DetailRow("Emergency Contact", current.emergencyContactName?.let { name ->
+                            "$name (${current.emergencyContactPhone ?: "No phone"})"
+                        })
+
+                        if (role == Role.OWNER || role == Role.RECEPTIONIST) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            OutlinedButton(
+                                onClick = onEditDemographics,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text("Edit Demographics")
+                            }
+                        }
                     }
                 }
 
-                if (role == Role.OWNER || role == Role.RECEPTIONIST) {
-                    Button(onClick = onStartIntake, modifier = Modifier.fillMaxWidth()) {
-                        Text("Run digital intake")
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(
+                            "Medical History",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+
+                        DetailRow(
+                            "Chronic Conditions",
+                            current.chronicConditions.joinToString().ifBlank { "None recorded" },
+                        )
+                        DetailRow(
+                            "Current Medications",
+                            current.currentMedications.joinToString().ifBlank { "None recorded" },
+                        )
+                        DetailRow(
+                            "Clinical Notes",
+                            current.medicalHistoryNotes.orEmpty().ifBlank { "None recorded" },
+                        )
+
+                        if (role == Role.OWNER || role == Role.ASSISTANT) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            OutlinedButton(
+                                onClick = onEditClinicalDetails,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text("Edit Medical History")
+                            }
+                        }
                     }
                 }
 
-                // Phase 3a - odontogram/periodontal charting and treatment plans. Receptionist
-                // and Lab Coordinator get neither button at all; firestore.rules would reject
-                // their reads anyway, but there's no reason to show a dead end.
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(
+                            "Legal Consents on File",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+
+                        for (consentType in ConsentType.entries) {
+                            val consent = consents.firstOrNull { it.consentType == consentType.id }
+                            val isGranted = consent?.granted == true
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    consentType.id,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = if (isGranted) Color(0xFFECFDF5) else Color(0xFFF1F5F9),
+                                ) {
+                                    Text(
+                                        text = if (consent == null) "Not Captured" else if (isGranted) "Granted" else "Withdrawn",
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isGranted) Color(0xFF047857) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+
+                        if (role == Role.OWNER || role == Role.RECEPTIONIST) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Button(
+                                onClick = onStartIntake,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            ) {
+                                Text("Run Digital Patient Intake (Signature)")
+                            }
+                        }
+                    }
+                }
+
                 if (role == Role.OWNER || role == Role.ASSISTANT) {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                    SectionHeader("Clinical charting")
-                    OutlinedButton(onClick = onOpenChartings, modifier = Modifier.fillMaxWidth()) {
-                        Text("Chartings")
-                    }
-                    OutlinedButton(onClick = onOpenTreatmentPlans, modifier = Modifier.fillMaxWidth()) {
-                        Text("Treatment plans")
-                    }
-                    // Phase 3b - X-ray/imaging. Same owner/assistant gating as chartings above;
-                    // Receptionist and Lab Coordinator have no Firestore or Storage access to
-                    // imaging at all, so the button stays hidden for them.
-                    OutlinedButton(onClick = onOpenImaging, modifier = Modifier.fillMaxWidth()) {
-                        Text("X-rays & imaging")
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Text(
+                                "Clinical Workstation",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+
+                            OutlinedButton(
+                                onClick = onOpenChartings,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text("🦷 FDI Odontogram & Periodontal Charting")
+                            }
+
+                            OutlinedButton(
+                                onClick = onOpenTreatmentPlans,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text("📋 Phased Treatment Plans")
+                            }
+
+                            OutlinedButton(
+                                onClick = onOpenImaging,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text("📷 Dental Radiographs & Intraoral Imaging")
+                            }
+                        }
                     }
                 }
 
-                // Phase 4a - GST invoicing. Owner/receptionist only, a clean full
-                // exclusion for Assistant and Lab Coordinator - unlike the clinical
-                // buttons above, there's no assistant carve-out here at all, matching
-                // firestore.rules' invoices match block.
                 if (role == Role.OWNER || role == Role.RECEPTIONIST) {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                    SectionHeader("Billing")
-                    OutlinedButton(onClick = onOpenInvoices, modifier = Modifier.fillMaxWidth()) {
-                        Text("Invoices")
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Text(
+                                "Billing & Invoicing",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+
+                            OutlinedButton(
+                                onClick = onOpenInvoices,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text("💳 Tax Invoices & Payment Receipts")
+                            }
+                        }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }
 }
 
 @Composable
-private fun AllergyBanner(allergies: List<String>) {
-    Box(
+private fun DetailRow(label: String, value: String?) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.error)
-            .padding(16.dp),
+            .padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top,
     ) {
-        Column {
-            Text(
-                "ALLERGY ALERT",
-                color = MaterialTheme.colorScheme.onError,
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Text(
-                allergies.joinToString(),
-                color = MaterialTheme.colorScheme.onError,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
-    }
-}
-
-@Composable
-private fun SectionHeader(title: String) {
-    Text(title, style = MaterialTheme.typography.titleMedium)
-}
-
-@Composable
-private fun DetailRow(label: String, value: String?) {
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-        Text(label, style = MaterialTheme.typography.labelSmall)
-        Text(value?.ifBlank { "Not on file" } ?: "Not on file", style = MaterialTheme.typography.bodyMedium)
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(130.dp),
+        )
+        Text(
+            value?.ifBlank { "—" } ?: "—",
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
     }
 }

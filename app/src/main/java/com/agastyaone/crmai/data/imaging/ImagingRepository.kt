@@ -76,7 +76,8 @@ class ImagingRepository(private val db: FirebaseFirestore = Firebase.firestore) 
 private inline fun <reified T : Any> Query.asFlow(): Flow<List<T>> = callbackFlow {
     val registration = addSnapshotListener { snapshot, error ->
         if (error != null) {
-            close(error)
+            android.util.Log.w("ImagingRepository", "Snapshot error: ${error.message}")
+            trySend(emptyList())
             return@addSnapshotListener
         }
         trySend(snapshot?.toObjects(T::class.java) ?: emptyList())

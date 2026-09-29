@@ -29,7 +29,8 @@ class TreatmentPlanRepository(private val db: FirebaseFirestore = Firebase.fires
         val registration = treatmentPlansCollection(clinicId).document(planId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    android.util.Log.w("TreatmentPlanRepo", "observeTreatmentPlan error: ${error.message}")
+                    trySend(null)
                     return@addSnapshotListener
                 }
                 trySend(snapshot?.toObject(TreatmentPlan::class.java))
@@ -77,7 +78,8 @@ class TreatmentPlanRepository(private val db: FirebaseFirestore = Firebase.fires
 private inline fun <reified T : Any> Query.asFlow(): Flow<List<T>> = callbackFlow {
     val registration = addSnapshotListener { snapshot, error ->
         if (error != null) {
-            close(error)
+            android.util.Log.w("TreatmentPlanRepo", "Snapshot error: ${error.message}")
+            trySend(emptyList())
             return@addSnapshotListener
         }
         trySend(snapshot?.toObjects(T::class.java) ?: emptyList())

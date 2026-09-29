@@ -41,21 +41,26 @@ class AuthRepository(private val auth: com.google.firebase.auth.FirebaseAuth = F
     /** Force-refreshes the ID token and republishes [sessionState] from its claims. */
     suspend fun refreshSession(): SessionState {
         val user = auth.currentUser ?: return SessionState.SignedOut.also { _sessionState.value = it }
-        val tokenResult = user.getIdToken(true).await()
-        val claims = tokenResult.claims
+        val state = try {
+            val tokenResult = user.getIdToken(true).await()
+            val claims = tokenResult.claims
 
-        val state = when {
-            claims["platformAdmin"] == true -> SessionState.PlatformAdmin
-            claims["clinicId"] is String && claims["role"] is String -> {
-                val role = Role.fromClaim(claims["role"] as String)
-                val clinicId = claims["clinicId"] as String
-                if (role != null && clinicId.isNotBlank()) {
-                    SessionState.Staff(uid = user.uid, clinicId = clinicId, role = role)
-                } else {
-                    SessionState.AwaitingClinicSetup
+            when {
+                claims["platformAdmin"] == true -> SessionState.PlatformAdmin
+                claims["clinicId"] is String && claims["role"] is String -> {
+                    val role = Role.fromClaim(claims["role"] as String)
+                    val clinicId = claims["clinicId"] as String
+                    if (role != null && clinicId.isNotBlank()) {
+                        SessionState.Staff(uid = user.uid, clinicId = clinicId, role = role)
+                    } else {
+                        SessionState.AwaitingClinicSetup
+                    }
                 }
+                else -> SessionState.AwaitingClinicSetup
             }
-            else -> SessionState.AwaitingClinicSetup
+        } catch (e: Throwable) {
+            android.util.Log.w("AuthRepository", "refreshSession token error: ${e.message}")
+            SessionState.AwaitingClinicSetup
         }
         _sessionState.value = state
         return state

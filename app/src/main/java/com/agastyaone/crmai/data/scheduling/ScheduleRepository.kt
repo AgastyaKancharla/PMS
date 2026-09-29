@@ -40,7 +40,8 @@ class ScheduleRepository(private val db: FirebaseFirestore = Firebase.firestore)
         val registration = appointmentsCollection(clinicId).document(appointmentId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    android.util.Log.w("ScheduleRepository", "observeAppointment error: ${error.message}")
+                    trySend(null)
                     return@addSnapshotListener
                 }
                 trySend(snapshot?.toObject(Appointment::class.java))
@@ -141,7 +142,8 @@ class ScheduleRepository(private val db: FirebaseFirestore = Firebase.firestore)
 private inline fun <reified T : Any> Query.asFlow(): Flow<List<T>> = callbackFlow {
     val registration = addSnapshotListener { snapshot, error ->
         if (error != null) {
-            close(error)
+            android.util.Log.w("ScheduleRepository", "Snapshot error: ${error.message}")
+            trySend(emptyList())
             return@addSnapshotListener
         }
         trySend(snapshot?.toObjects(T::class.java) ?: emptyList())

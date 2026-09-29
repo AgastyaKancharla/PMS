@@ -11,6 +11,8 @@
 app/build/
 app/release/
 app/debug/
+*.apk
+*.aab
 
 # Node / Cloud Functions
 functions/node_modules/

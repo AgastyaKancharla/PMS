@@ -34,7 +34,8 @@ class ChartingRepository(private val db: FirebaseFirestore = Firebase.firestore)
         val registration = chartingsCollection(clinicId).document(chartingId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    android.util.Log.w("ChartingRepository", "observeCharting error: ${error.message}")
+                    trySend(null)
                     return@addSnapshotListener
                 }
                 trySend(snapshot?.toObject(Charting::class.java))
@@ -101,7 +102,8 @@ class ChartingRepository(private val db: FirebaseFirestore = Firebase.firestore)
 private inline fun <reified T : Any> Query.asFlow(): Flow<List<T>> = callbackFlow {
     val registration = addSnapshotListener { snapshot, error ->
         if (error != null) {
-            close(error)
+            android.util.Log.w("ChartingRepository", "Snapshot error: ${error.message}")
+            trySend(emptyList())
             return@addSnapshotListener
         }
         trySend(snapshot?.toObjects(T::class.java) ?: emptyList())

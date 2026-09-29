@@ -24,7 +24,13 @@ class AuthViewModel(
      */
     fun refreshIfColdStart() {
         if (sessionState.value is SessionState.Loading) {
-            viewModelScope.launch { authRepository.refreshSession() }
+            viewModelScope.launch {
+                try {
+                    authRepository.refreshSession()
+                } catch (e: Throwable) {
+                    android.util.Log.w("AuthViewModel", "Failed to refresh session on cold start: ${e.message}")
+                }
+            }
         }
     }
 

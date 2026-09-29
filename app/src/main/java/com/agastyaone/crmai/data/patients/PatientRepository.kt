@@ -61,7 +61,8 @@ class PatientRepository(private val db: FirebaseFirestore = Firebase.firestore) 
         val registration = patientsCollection(clinicId).document(patientId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    android.util.Log.w("PatientRepository", "observePatient error: ${error.message}")
+                    trySend(null)
                     return@addSnapshotListener
                 }
                 trySend(snapshot?.toObject(Patient::class.java))
@@ -216,7 +217,8 @@ class PatientRepository(private val db: FirebaseFirestore = Firebase.firestore) 
 private inline fun <reified T : Any> Query.asFlow(): Flow<List<T>> = callbackFlow {
     val registration = addSnapshotListener { snapshot, error ->
         if (error != null) {
-            close(error)
+            android.util.Log.w("PatientRepository", "Snapshot error: ${error.message}")
+            trySend(emptyList())
             return@addSnapshotListener
         }
         trySend(snapshot?.toObjects(T::class.java) ?: emptyList())

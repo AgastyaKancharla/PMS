@@ -31,7 +31,8 @@ class InvoiceRepository(private val db: FirebaseFirestore = Firebase.firestore) 
         val registration = invoicesCollection(clinicId).document(invoiceId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    android.util.Log.w("InvoiceRepository", "observeInvoice error: ${error.message}")
+                    trySend(null)
                     return@addSnapshotListener
                 }
                 trySend(snapshot?.toObject(Invoice::class.java))
@@ -106,7 +107,8 @@ class InvoiceRepository(private val db: FirebaseFirestore = Firebase.firestore) 
 private inline fun <reified T : Any> Query.asFlow(): Flow<List<T>> = callbackFlow {
     val registration = addSnapshotListener { snapshot, error ->
         if (error != null) {
-            close(error)
+            android.util.Log.w("InvoiceRepository", "Snapshot error: ${error.message}")
+            trySend(emptyList())
             return@addSnapshotListener
         }
         trySend(snapshot?.toObjects(T::class.java) ?: emptyList())

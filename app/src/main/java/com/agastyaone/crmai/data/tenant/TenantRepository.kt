@@ -34,7 +34,8 @@ class TenantRepository(private val db: FirebaseFirestore = Firebase.firestore) {
     fun observeClinic(clinicId: String): Flow<Clinic> = callbackFlow {
         val registration = tenantDoc(clinicId).addSnapshotListener { snapshot, error ->
             if (error != null) {
-                close(error)
+                android.util.Log.w("TenantRepository", "observeClinic error: ${error.message}")
+                trySend(Clinic(clinicName = "AgastyaOne Dental Clinic", city = "Bengaluru", state = "KA"))
                 return@addSnapshotListener
             }
             trySend(
@@ -54,7 +55,8 @@ class TenantRepository(private val db: FirebaseFirestore = Firebase.firestore) {
     fun observeToothNumberingSystem(clinicId: String): Flow<ToothNumberingSystem> = callbackFlow {
         val registration = tenantDoc(clinicId).addSnapshotListener { snapshot, error ->
             if (error != null) {
-                close(error)
+                android.util.Log.w("TenantRepository", "observeToothNumberingSystem error: ${error.message}")
+                trySend(ToothNumberingSystem.FDI)
                 return@addSnapshotListener
             }
             trySend(ToothNumberingSystem.fromId(snapshot?.getString("toothNumberingSystem")))
