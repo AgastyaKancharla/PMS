@@ -68,7 +68,8 @@ fun PatientDetailScreen(
     onOpenInvoices: () -> Unit,
 ) {
     val repository = ServiceLocator.patientRepository
-    val patient by repository.observePatient(clinicId, patientId).collectAsState(initial = null)
+    val patient by repository.observePatient(clinicId, patientId)
+        .collectAsState(initial = com.agastyaone.crmai.data.demo.DemoDataStore.getPatient(patientId))
     val consents by repository.observeConsents(clinicId, patientId).collectAsState(initial = emptyList())
 
     Scaffold(
@@ -95,8 +96,26 @@ fun PatientDetailScreen(
     ) { padding ->
         val current = patient
         if (current == null) {
-            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(
+                        "Patient record not found or still loading...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Button(onClick = onBack) {
+                        Text("Return to Patient Directory")
+                    }
+                }
             }
             return@Scaffold
         }

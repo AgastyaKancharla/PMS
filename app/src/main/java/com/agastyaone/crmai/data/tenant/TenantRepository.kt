@@ -31,24 +31,37 @@ class TenantRepository(private val db: FirebaseFirestore = Firebase.firestore) {
 
     private fun tenantDoc(clinicId: String) = db.collection("tenants").document(clinicId)
 
-    fun observeClinic(clinicId: String): Flow<Clinic> = callbackFlow {
-        val registration = tenantDoc(clinicId).addSnapshotListener { snapshot, error ->
-            if (error != null) {
-                android.util.Log.w("TenantRepository", "observeClinic error: ${error.message}")
-                trySend(Clinic(clinicName = "AgastyaOne Dental Clinic", city = "Bengaluru", state = "KA"))
-                return@addSnapshotListener
-            }
-            trySend(
+    fun observeClinic(clinicId: String): Flow<Clinic> {
+        if (com.agastyaone.crmai.data.demo.DemoDataStore.isDemoClinic(clinicId)) {
+            return kotlinx.coroutines.flow.flowOf(
                 Clinic(
-                    clinicName = snapshot?.getString("clinicName").orEmpty(),
-                    address = snapshot?.getString("address").orEmpty(),
-                    city = snapshot?.getString("city").orEmpty(),
-                    state = snapshot?.getString("state").orEmpty(),
-                    gstin = snapshot?.getString("gstin"),
-                ),
+                    clinicName = "AgastyaOne Dental Clinic",
+                    address = "102 Indiranagar 100ft Road",
+                    city = "Bengaluru",
+                    state = "Karnataka",
+                    gstin = "29AAAAA0000A1Z5"
+                )
             )
         }
-        awaitClose { registration.remove() }
+        return callbackFlow {
+            val registration = tenantDoc(clinicId).addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    android.util.Log.w("TenantRepository", "observeClinic error: ${error.message}")
+                    trySend(Clinic(clinicName = "AgastyaOne Dental Clinic", city = "Bengaluru", state = "Karnataka"))
+                    return@addSnapshotListener
+                }
+                trySend(
+                    Clinic(
+                        clinicName = snapshot?.getString("clinicName").orEmpty(),
+                        address = snapshot?.getString("address").orEmpty(),
+                        city = snapshot?.getString("city").orEmpty(),
+                        state = snapshot?.getString("state").orEmpty(),
+                        gstin = snapshot?.getString("gstin"),
+                    ),
+                )
+            }
+            awaitClose { registration.remove() }
+        }
     }
 
     /** Display-layer only - see [com.agastyaone.crmai.data.charting.ToothChart] for why. */

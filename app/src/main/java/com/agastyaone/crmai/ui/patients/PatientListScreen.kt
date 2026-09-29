@@ -72,7 +72,12 @@ fun PatientListScreen(
     var searchResults by remember { mutableStateOf<List<Patient>?>(null) }
     var isSearching by remember { mutableStateOf(false) }
 
-    val recentPatients by repository.observeRecentPatients(clinicId).collectAsState(initial = emptyList())
+    val initialList = remember(clinicId) {
+        if (com.agastyaone.crmai.data.demo.DemoDataStore.isDemoClinic(clinicId)) {
+            com.agastyaone.crmai.data.demo.DemoDataStore.searchPatients("")
+        } else emptyList()
+    }
+    val recentPatients by repository.observeRecentPatients(clinicId).collectAsState(initial = initialList)
 
     LaunchedEffect(query) {
         val trimmed = query.trim()

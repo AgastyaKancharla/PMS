@@ -15,7 +15,12 @@ fun LocalDate.startOfDayTimestamp(): Timestamp = Timestamp(this.atStartOfDay(zon
 
 fun LocalDate.endOfDayTimestamp(): Timestamp = this.plusDays(1).startOfDayTimestamp()
 
-fun Timestamp.toLocalDateTime(): LocalDateTime = LocalDateTime.ofInstant(this.toDate().toInstant(), zone)
+fun Timestamp.toLocalDateTime(): LocalDateTime =
+    try {
+        LocalDateTime.ofInstant(java.time.Instant.ofEpochSecond(this.seconds, this.nanoseconds.toLong()), zone)
+    } catch (_: Throwable) {
+        LocalDateTime.now()
+    }
 
 fun LocalDate.combineWithTime(time: LocalTime): Timestamp {
     val instant = this.atTime(time).atZone(zone).toInstant()

@@ -30,23 +30,33 @@ class ScheduleRepository(private val db: FirebaseFirestore = Firebase.firestore)
         clinicId: String,
         rangeStart: Timestamp,
         rangeEnd: Timestamp,
-    ): Flow<List<Appointment>> = appointmentsCollection(clinicId)
-        .whereGreaterThanOrEqualTo("startTime", rangeStart)
-        .whereLessThan("startTime", rangeEnd)
-        .orderBy("startTime")
-        .asFlow()
+    ): Flow<List<Appointment>> {
+        if (com.agastyaone.crmai.data.demo.DemoDataStore.isDemoClinic(clinicId)) {
+            return com.agastyaone.crmai.data.demo.DemoDataStore.observeAppointmentsInRange(rangeStart, rangeEnd)
+        }
+        return appointmentsCollection(clinicId)
+            .whereGreaterThanOrEqualTo("startTime", rangeStart)
+            .whereLessThan("startTime", rangeEnd)
+            .orderBy("startTime")
+            .asFlow()
+    }
 
-    fun observeAppointment(clinicId: String, appointmentId: String): Flow<Appointment?> = callbackFlow {
-        val registration = appointmentsCollection(clinicId).document(appointmentId)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    android.util.Log.w("ScheduleRepository", "observeAppointment error: ${error.message}")
-                    trySend(null)
-                    return@addSnapshotListener
+    fun observeAppointment(clinicId: String, appointmentId: String): Flow<Appointment?> {
+        if (com.agastyaone.crmai.data.demo.DemoDataStore.isDemoClinic(clinicId)) {
+            return com.agastyaone.crmai.data.demo.DemoDataStore.observeAppointment(appointmentId)
+        }
+        return callbackFlow {
+            val registration = appointmentsCollection(clinicId).document(appointmentId)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        android.util.Log.w("ScheduleRepository", "observeAppointment error: ${error.message}")
+                        trySend(null)
+                        return@addSnapshotListener
+                    }
+                    trySend(snapshot?.toObject(Appointment::class.java))
                 }
-                trySend(snapshot?.toObject(Appointment::class.java))
-            }
-        awaitClose { registration.remove() }
+            awaitClose { registration.remove() }
+        }
     }
 
     suspend fun createAppointment(
@@ -60,22 +70,46 @@ class ScheduleRepository(private val db: FirebaseFirestore = Firebase.firestore)
         source: AppointmentSource,
         notes: String?,
     ): String {
-        val ref = appointmentsCollection(clinicId).document()
-        val data = hashMapOf<String, Any?>(
-            "patientId" to patientId,
-            "patientName" to patientName,
-            "dentistUid" to dentistUid,
-            "startTime" to startTime,
-            "endTime" to endTime,
-            "status" to AppointmentStatus.SCHEDULED.id,
-            "source" to source.id,
-            "notes" to notes,
-            "createdByUid" to createdByUid,
-            "createdAt" to FieldValue.serverTimestamp(),
-            "cancelledReason" to null,
-        )
-        ref.set(data).await()
-        return ref.id
+        if (com.agastyaone.crmai.data.demo.DemoDataStore.isDemoClinic(clinicId)) {
+            return com.agastyaone.crmai.data.demo.DemoDataStore.addAppointment(
+                patientId = patientId,
+                patientName = patientName,
+                startTime = startTime,
+                endTime = endTime,
+                source = source,
+                notes = notes,
+                createdByUid = createdByUid,
+            ).id
+        }
+        return try {
+            val ref = appointmentsCollection(clinicId).document()
+            val data = hashMapOf<String, Any?>(
+                "patientId" to patientId,
+                "patientName" to patientName,
+                "dentistUid" to dentistUid,
+                "startTime" to startTime,
+                "endTime" to endTime,
+                "status" to AppointmentStatus.SCHEDULED.id,
+                "source" to source.id,
+                "notes" to notes,
+                "createdByUid" to createdByUid,
+                "createdAt" to FieldValue.serverTimestamp(),
+                "cancelledReason" to null,
+            )
+            ref.set(data).await()
+            ref.id
+        } catch (e: Exception) {
+            android.util.Log.w("ScheduleRepository", "createAppointment firestore error: ${e.message}")
+            com.agastyaone.crmai.data.demo.DemoDataStore.addAppointment(
+                patientId = patientId,
+                patientName = patientName,
+                startTime = startTime,
+                endTime = endTime,
+                source = source,
+                notes = notes,
+                createdByUid = createdByUid,
+            ).id
+        }
     }
 
     suspend fun rescheduleAppointment(

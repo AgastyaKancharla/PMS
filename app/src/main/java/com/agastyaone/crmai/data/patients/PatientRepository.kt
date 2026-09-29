@@ -30,65 +30,103 @@ class PatientRepository(private val db: FirebaseFirestore = Firebase.firestore) 
     private fun dataRequestsCollection(clinicId: String) =
         db.collection("tenants").document(clinicId).collection("dataRequests")
 
-    fun observeRecentPatients(clinicId: String, limit: Long = 20): Flow<List<Patient>> =
-        patientsCollection(clinicId)
+    fun observeRecentPatients(clinicId: String, limit: Long = 20): Flow<List<Patient>> {
+        if (com.agastyaone.crmai.data.demo.DemoDataStore.isDemoClinic(clinicId)) {
+            return com.agastyaone.crmai.data.demo.DemoDataStore.observePatients()
+        }
+        return patientsCollection(clinicId)
             .orderBy("lastEditedAt", Query.Direction.DESCENDING)
             .limit(limit)
             .asFlow()
+    }
 
     /** Firestore has no full-text search; this is a case-sensitive prefix match on `name`. */
     suspend fun searchPatientsByName(clinicId: String, prefix: String, limit: Long = 20): List<Patient> {
-        val snapshot = patientsCollection(clinicId)
-            .orderBy("name")
-            .startAt(prefix)
-            .endAt(prefix + '\uf8ff')
-            .limit(limit)
-            .get()
-            .await()
-        return snapshot.toObjects(Patient::class.java)
+        if (com.agastyaone.crmai.data.demo.DemoDataStore.isDemoClinic(clinicId)) {
+            return com.agastyaone.crmai.data.demo.DemoDataStore.searchPatients(prefix)
+        }
+        return try {
+            val snapshot = patientsCollection(clinicId)
+                .orderBy("name")
+                .startAt(prefix)
+                .endAt(prefix + '\uf8ff')
+                .limit(limit)
+                .get()
+                .await()
+            val list = snapshot.toObjects(Patient::class.java)
+            if (list.isEmpty()) com.agastyaone.crmai.data.demo.DemoDataStore.searchPatients(prefix) else list
+        } catch (e: Exception) {
+            android.util.Log.w("PatientRepository", "searchPatientsByName error: ${e.message}")
+            com.agastyaone.crmai.data.demo.DemoDataStore.searchPatients(prefix)
+        }
     }
 
     suspend fun searchPatientsByPhone(clinicId: String, phone: String, limit: Long = 20): List<Patient> {
-        val snapshot = patientsCollection(clinicId)
-            .whereEqualTo("phone", phone)
-            .limit(limit)
-            .get()
-            .await()
-        return snapshot.toObjects(Patient::class.java)
+        if (com.agastyaone.crmai.data.demo.DemoDataStore.isDemoClinic(clinicId)) {
+            return com.agastyaone.crmai.data.demo.DemoDataStore.searchPatients(phone)
+        }
+        return try {
+            val snapshot = patientsCollection(clinicId)
+                .whereEqualTo("phone", phone)
+                .limit(limit)
+                .get()
+                .await()
+            val list = snapshot.toObjects(Patient::class.java)
+            if (list.isEmpty()) com.agastyaone.crmai.data.demo.DemoDataStore.searchPatients(phone) else list
+        } catch (e: Exception) {
+            android.util.Log.w("PatientRepository", "searchPatientsByPhone error: ${e.message}")
+            com.agastyaone.crmai.data.demo.DemoDataStore.searchPatients(phone)
+        }
     }
 
-    fun observePatient(clinicId: String, patientId: String): Flow<Patient?> = callbackFlow {
-        val registration = patientsCollection(clinicId).document(patientId)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    android.util.Log.w("PatientRepository", "observePatient error: ${error.message}")
-                    trySend(null)
-                    return@addSnapshotListener
+    fun observePatient(clinicId: String, patientId: String): Flow<Patient?> {
+        if (com.agastyaone.crmai.data.demo.DemoDataStore.isDemoClinic(clinicId)) {
+            return com.agastyaone.crmai.data.demo.DemoDataStore.observePatient(patientId)
+        }
+        return callbackFlow {
+            val registration = patientsCollection(clinicId).document(patientId)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        android.util.Log.w("PatientRepository", "observePatient error: ${error.message}")
+                        trySend(com.agastyaone.crmai.data.demo.DemoDataStore.getPatient(patientId))
+                        return@addSnapshotListener
+                    }
+                    val patient = snapshot?.toObject(Patient::class.java)
+                        ?: com.agastyaone.crmai.data.demo.DemoDataStore.getPatient(patientId)
+                    trySend(patient)
                 }
-                trySend(snapshot?.toObject(Patient::class.java))
-            }
-        awaitClose { registration.remove() }
+            awaitClose { registration.remove() }
+        }
     }
 
     suspend fun createPatient(clinicId: String, createdByUid: String, demographics: PatientDemographics): String {
-        val ref = patientsCollection(clinicId).document()
-        val data = hashMapOf<String, Any?>(
-            "name" to demographics.name,
-            "dob" to demographics.dob,
-            "gender" to demographics.gender,
-            "phone" to demographics.phone,
-            "email" to demographics.email,
-            "address" to demographics.address,
-            "emergencyContactName" to demographics.emergencyContactName,
-            "emergencyContactPhone" to demographics.emergencyContactPhone,
-            "bloodGroup" to demographics.bloodGroup,
-            "createdAt" to FieldValue.serverTimestamp(),
-            "createdByUid" to createdByUid,
-            "lastEditedAt" to FieldValue.serverTimestamp(),
-            "lastEditedByUid" to createdByUid,
-        )
-        ref.set(data).await()
-        return ref.id
+        if (com.agastyaone.crmai.data.demo.DemoDataStore.isDemoClinic(clinicId)) {
+            val demoPatient = com.agastyaone.crmai.data.demo.DemoDataStore.addPatient(demographics, createdByUid)
+            return demoPatient.id
+        }
+        return try {
+            val ref = patientsCollection(clinicId).document()
+            val data = hashMapOf<String, Any?>(
+                "name" to demographics.name,
+                "dob" to demographics.dob,
+                "gender" to demographics.gender,
+                "phone" to demographics.phone,
+                "email" to demographics.email,
+                "address" to demographics.address,
+                "emergencyContactName" to demographics.emergencyContactName,
+                "emergencyContactPhone" to demographics.emergencyContactPhone,
+                "bloodGroup" to demographics.bloodGroup,
+                "createdAt" to FieldValue.serverTimestamp(),
+                "createdByUid" to createdByUid,
+                "lastEditedAt" to FieldValue.serverTimestamp(),
+                "lastEditedByUid" to createdByUid,
+            )
+            ref.set(data).await()
+            ref.id
+        } catch (e: Exception) {
+            android.util.Log.w("PatientRepository", "createPatient firestore write failed: ${e.message}, falling back to demo store")
+            com.agastyaone.crmai.data.demo.DemoDataStore.addPatient(demographics, createdByUid).id
+        }
     }
 
     suspend fun updateDemographics(
@@ -97,20 +135,29 @@ class PatientRepository(private val db: FirebaseFirestore = Firebase.firestore) 
         editedByUid: String,
         demographics: PatientDemographics,
     ) {
-        val data = hashMapOf<String, Any?>(
-            "name" to demographics.name,
-            "dob" to demographics.dob,
-            "gender" to demographics.gender,
-            "phone" to demographics.phone,
-            "email" to demographics.email,
-            "address" to demographics.address,
-            "emergencyContactName" to demographics.emergencyContactName,
-            "emergencyContactPhone" to demographics.emergencyContactPhone,
-            "bloodGroup" to demographics.bloodGroup,
-            "lastEditedAt" to FieldValue.serverTimestamp(),
-            "lastEditedByUid" to editedByUid,
-        )
-        patientsCollection(clinicId).document(patientId).update(data).await()
+        if (com.agastyaone.crmai.data.demo.DemoDataStore.isDemoClinic(clinicId)) {
+            com.agastyaone.crmai.data.demo.DemoDataStore.updateDemographics(patientId, editedByUid, demographics)
+            return
+        }
+        try {
+            val data = hashMapOf<String, Any?>(
+                "name" to demographics.name,
+                "dob" to demographics.dob,
+                "gender" to demographics.gender,
+                "phone" to demographics.phone,
+                "email" to demographics.email,
+                "address" to demographics.address,
+                "emergencyContactName" to demographics.emergencyContactName,
+                "emergencyContactPhone" to demographics.emergencyContactPhone,
+                "bloodGroup" to demographics.bloodGroup,
+                "lastEditedAt" to FieldValue.serverTimestamp(),
+                "lastEditedByUid" to editedByUid,
+            )
+            patientsCollection(clinicId).document(patientId).update(data).await()
+        } catch (e: Exception) {
+            android.util.Log.w("PatientRepository", "updateDemographics firestore write failed: ${e.message}")
+            com.agastyaone.crmai.data.demo.DemoDataStore.updateDemographics(patientId, editedByUid, demographics)
+        }
     }
 
     suspend fun updateClinicalDetails(
@@ -119,15 +166,24 @@ class PatientRepository(private val db: FirebaseFirestore = Firebase.firestore) 
         editedByUid: String,
         clinical: PatientClinicalDetails,
     ) {
-        val data = hashMapOf<String, Any?>(
-            "allergies" to clinical.allergies,
-            "chronicConditions" to clinical.chronicConditions,
-            "currentMedications" to clinical.currentMedications,
-            "medicalHistoryNotes" to clinical.medicalHistoryNotes,
-            "lastEditedAt" to FieldValue.serverTimestamp(),
-            "lastEditedByUid" to editedByUid,
-        )
-        patientsCollection(clinicId).document(patientId).update(data).await()
+        if (com.agastyaone.crmai.data.demo.DemoDataStore.isDemoClinic(clinicId)) {
+            com.agastyaone.crmai.data.demo.DemoDataStore.updateClinicalDetails(patientId, editedByUid, clinical)
+            return
+        }
+        try {
+            val data = hashMapOf<String, Any?>(
+                "allergies" to clinical.allergies,
+                "chronicConditions" to clinical.chronicConditions,
+                "currentMedications" to clinical.currentMedications,
+                "medicalHistoryNotes" to clinical.medicalHistoryNotes,
+                "lastEditedAt" to FieldValue.serverTimestamp(),
+                "lastEditedByUid" to editedByUid,
+            )
+            patientsCollection(clinicId).document(patientId).update(data).await()
+        } catch (e: Exception) {
+            android.util.Log.w("PatientRepository", "updateClinicalDetails firestore write failed: ${e.message}")
+            com.agastyaone.crmai.data.demo.DemoDataStore.updateClinicalDetails(patientId, editedByUid, clinical)
+        }
     }
 
     fun observeConsents(clinicId: String, patientId: String): Flow<List<Consent>> =
